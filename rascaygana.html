@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rasca y Gana</title>
+<style>
+:root{
+  --bg:#0f1226; --card:#15183a; --accent:#7c8cff; --text:#e9ecff;
+  --muted:#9aa3c7; --win:#19c37d;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Inter, "Helvetica Neue", Arial;
+  color:var(--text);
+  background: radial-gradient(1200px 800px at 10% -10%, #1b1f49 0%, transparent 60%),
+              radial-gradient(1000px 1000px at 110% 110%, #1b1f49 0%, transparent 50%),
+              var(--bg);
+  display:grid; place-items:center;
+}
+.wrap{width:min(95vw,520px)}
+.title{text-align:center; margin:16px 0 10px; letter-spacing:.3px}
+.card{
+  position:relative; border-radius:20px; overflow:hidden;
+  background:linear-gradient(180deg,#1a1e4a,#0f1233);
+  box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+}
+.header b{color:var(--text)}
+.muted{color:var(--muted); font-size:.92rem}
+.content{
+  position:relative; min-height:260px; display:grid; place-items:center;
+  padding:28px 18px 22px;
+}
+.prize{
+  text-align:center; z-index:0; padding:14px 10px; line-height:1.25;
+  opacity:0; transition: opacity 0.3s ease; pointer-events:none;
+}
+.prize h1{margin:6px 0 8px; font-size:clamp(28px,4.5vw,40px)}
+.prize p{margin:0; color:var(--muted)}
+canvas.scratch{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action:none;}
+.bar{display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 14px; border-top:1px solid rgba(255,255,255,.08); background:linear-gradient(0deg, rgba(255,255,255,.05), rgba(255,255,255,0))}
+.progress{height:8px; flex:1 1 auto; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden}
+.progress>i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#b1b9ff)}
+.pct{min-width:64px; text-align:right; font-variant-numeric:tabular-nums}
+.btns{display:flex; gap:10px}
+button{
+  -webkit-tap-highlight-color:transparent; appearance:none; border:0; border-radius:999px; padding:10px 14px; font-weight:600;
+  background:#232654; color:var(--text); cursor:pointer;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 6px 16px rgba(0,0,0,.3);
+  transition: transform .06s ease, box-shadow .15s ease, background .2s ease;
+}
+button:hover{ transform: translateY(-1px) }
+button:active{ transform: translateY(0) scale(.98) }
+.primary{ background: linear-gradient(180deg,var(--accent),#6c7bff); color:#0b0d22 }
+.success{ background: linear-gradient(180deg,var(--win),#11a868); color:#042d1c }
+.confetti{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+.confetti i{position:absolute; width:8px; height:12px; background:hsl(var(--h,0) var(--s,80%) var(--l,60%)); top:-12px; left:var(--x,50%); transform:rotate(var(--r,0deg)); animation:fall var(--d,1400ms) ease-out forwards}
+@keyframes fall{to{transform:translate(var(--tx,0px),calc(100vh + 40px)) rotate(var(--rr,0deg))}}
+.badge{display:inline-block; padding:4px 10px; border-radius:999px; font-size:.8rem; background:rgba(25,195,125,.15); color:var(--win); border:1px solid rgba(25,195,125,.35)}
+.inputBox{display:flex; gap:8px; margin-bottom:20px}
+input{flex:1; padding:10px; border-radius:8px; border:none}
+#codeMsg{margin-top:6px; min-height:20px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="title">🎟️ Rasca y Gana</h2>
+
+  <div id="codeGate">
+    <p>Introduce tu código para jugar:</p>
+    <div class="inputBox">
+      <input id="codeInput" placeholder="Código..."/>
+      <button class="primary" id="codeBtn">Entrar</button>
+    </div>
+    <div id="codeMsg" class="muted"></div>
+  </div>
+
+  <div class="card" id="card">
+    <div class="header">
+      <div>
+        <b>Rasca la zona plateada</b>
+        <div class="muted">Descubre tu premio oculto</div>
+      </div>
+      <div class="badge" id="status">Bloqueado</div>
+    </div>
+
+    <div class="content">
+      <div class="prize" id="prize">
+        <h1 id="prizeTitle">🎁 ¡Premio misterioso!</h1>
+        <p id="prizeDesc">Rasca para revelar si has ganado algo grande…</p>
+      </div>
+      <canvas class="scratch" id="scratch"></canvas>
+      <div class="confetti" id="confetti"></div>
+    </div>
+
+    <div class="bar">
+      <div class="progress"><i id="bar"></i></div>
+      <div class="pct" id="pct">0%</div>
+    </div>
+
+    <div class="bar" style="border-top:none; gap:8px">
+      <div class="btns">
+        <button class="primary" id="resetBtn">🔁 Reiniciar</button>
+      </div>
+      <small class="muted">Se desbloquea al 60% rascado</small>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAsAVsv0iwnv4cdDNkSyo1jBIYvCyn_pCY",
+  authDomain: "rascay-d6d3d.firebaseapp.com",
+  databaseURL: "https://rascay-d6d3d-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "rascay-d6d3d",
+  storageBucket: "rascay-d6d3d.appspot.com",
+  messagingSenderId: "991120220829",
+  appId: "1:991120220829:web:15c8dfa4677f701e582a74",
+  measurementId: "G-6KBSRPP6PC"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Elementos
+const codeInput = document.getElementById('codeInput');
+const codeBtn = document.getElementById('codeBtn');
+const codeMsg = document.getElementById('codeMsg');
+const codeGate = document.getElementById('codeGate');
+const scratch = document.getElementById('scratch');
+const prizeTitle = document.getElementById('prizeTitle');
+const prizeDesc = document.getElementById('prizeDesc');
+const pct = document.getElementById('pct');
+const bar = document.getElementById('bar');
+const status = document.getElementById('status');
+const confetti = document.getElementById('confetti');
+const resetBtn = document.getElementById('resetBtn');
+const prize = document.getElementById('prize');
+
+let ctx, w, h, isDown=false, revealed=false;
+const BRUSH=28, SAMPLE_STRIDE=8, THRESHOLD=0.6;
+
+// Premios
+const PRIZES = [
+  { title:'😢 ¡Sin premio esta vez!', desc:'Sigue intentando, la próxima puede ser tuya.', weight:50 },
+  { title:'💶 ¡Has ganado 10€!', desc:'Podrás reclamar tu premio en caja.', weight:15 },
+  { title:'💶 ¡Has ganado 100€!', desc:'Premio en metálico para ti.', weight:10 },
+  { title:'💶 ¡Has ganado 1000€!', desc:'El gran premio en efectivo.', weight:5 },
+  { title:'🧽 ¡10 autolavados gratis!', desc:'Luce tu coche impecable con este premio.', weight:10 },
+  { title:'⛽ ¡10 recargas de gasolina gratis!', desc:'Disfruta de tus viajes sin preocuparte del combustible.', weight:10 }
+];
+
+function pickPrize(){
+  const totalWeight = PRIZES.reduce((sum,p)=>sum+p.weight,0);
+  let rnd=Math.random()*totalWeight;
+  for(const p of PRIZES){
+    if(rnd<p.weight){ prizeTitle.textContent=p.title; prizeDesc.textContent=p.desc; return; }
+    rnd-=p.weight;
+  }
+}
+
+// Canvas
+function sizeCanvas(){
+  const rect=scratch.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  w=Math.floor(rect.width*dpr); h=Math.floor(rect.height*dpr);
+  scratch.width=w; scratch.height=h;
+  if(!ctx) ctx=scratch.getContext('2d');
+  paintCover();
+}
+
+function paintCover(){
+  const g=ctx;
+  g.save(); g.globalCompositeOperation='source-over';
+  g.clearRect(0,0,w,h);
+  const grad=g.createLinearGradient(0,0,w,h);
+  grad.addColorStop(0,'#cfd4db'); grad.addColorStop(0.5,'#aab0b8'); grad.addColorStop(1,'#d7dbe2');
+  g.fillStyle=grad; g.fillRect(0,0,w,h);
+  const grainSize=2; g.globalAlpha=0.15;
+  for(let y=0;y<h;y+=grainSize){ for(let x=0;x<w;x+=grainSize){ const shade=160+Math.floor(Math.random()*80); g.fillStyle=`rgb(${shade},${shade},${shade})`; g.fillRect(x,y,grainSize,grainSize); } }
+  g.globalAlpha=1; g.fillStyle='rgba(0,0,0,.16)'; g.font=`${Math.floor(h*0.12)}px system-ui, sans-serif`; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText('RASCA',w/2,h/2); g.restore();
+}
+
+function scratchAt(cx,cy){
+  const rect=scratch.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const x=(cx-rect.left)*dpr, y=(cy-rect.top)*dpr;
+  ctx.save(); ctx.globalCompositeOperation='destination-out';
+  ctx.beginPath(); ctx.arc(x,y,BRUSH*dpr,0,Math.PI*2); ctx.fill(); ctx.restore();
+}
+
+function pointerX(e){ return e.touches?e.touches[0].clientX:e.clientX; }
+function pointerY(e){ return e.touches?e.touches[0].clientY:e.clientY; }
+function handlePointerDown(e){ isDown=true; scratchAt(pointerX(e),pointerY(e)); }
+function handlePointerMove(e){ if(isDown){ e.preventDefault(); scratchAt(pointerX(e),pointerY(e)); updateProgressThrottled(); } }
+function handlePointerUp(){ isDown=false; updateProgress(); }
+
+let progressRAF=null;
+function updateProgressThrottled(){ if(progressRAF) return; progressRAF=requestAnimationFrame(()=>{ progressRAF=null; updateProgress(); }); }
+
+function updateProgress(){
+  if(!ctx) return;
+  try{
+    const {data}=ctx.getImageData(0,0,w,h);
+    let cleared=0,total=0,step=SAMPLE_STRIDE*4;
+    for(let i=3;i<data.length;i+=step){ total++; if(data[i]===0) cleared++; }
+    const ratio=cleared/total; const percent=Math.min(100,Math.round(ratio*100));
+    bar.style.width=percent+'%'; pct.textContent=percent+'%';
+    if(!revealed && ratio>=THRESHOLD){ revealed=true; prize.style.opacity='1'; status.textContent='¡Desbloqueado!'; burstConfetti(); }
+  }catch(err){}
+}
+
+// Confetti
+function burstConfetti(){ clearConfetti(); for(let i=0;i<140;i++){ const piece=document.createElement('i'); const x=Math.random()*100,h=Math.floor(Math.random()*360),s=60+Math.random()*30,l=45+Math.random()*15,dur=900+Math.random()*1200,tx=(Math.random()*200-100)+'px',rr=(Math.random()*720-360)+'deg'; piece.style.setProperty('--x',x+'%'); piece.style.setProperty('--h',h); piece.style.setProperty('--s',s+'%'); piece.style.setProperty('--l',l+'%'); piece.style.setProperty('--d',dur+'ms'); piece.style.setProperty('--tx',tx); piece.style.setProperty('--rr',rr); confetti.appendChild(piece);} setTimeout(clearConfetti,2500); }
+function clearConfetti(){ confetti.innerHTML=''; }
+
+// Firebase código
+async function validateCode(code){
+  if(!code) return false;
+  const snapshot = await db.ref('codes/'+code).get();
+  if(snapshot.exists()){ await db.ref('codes/'+code).remove(); return true; }
+  return false;
+}
+
+codeBtn.addEventListener('click', async ()=>{
+  const code = codeInput.value.trim(); codeMsg.textContent='';
+  const valid = await validateCode(code);
+  if(valid){
+    codeGate.style.display='none';
+    scratch.addEventListener('mousedown', handlePointerDown);
+    scratch.addEventListener('mousemove', handlePointerMove,{passive:false});
+    window.addEventListener('mouseup', handlePointerUp);
+    scratch.addEventListener('touchstart', e=>{ e.preventDefault(); handlePointerDown(e); },{passive:false});
+    scratch.addEventListener('touchmove', handlePointerMove,{passive:false});
+    scratch.addEventListener('touchend', handlePointerUp);
+    sizeCanvas(); pickPrize();
+  }else{ codeMsg.style.color='#ff6b6b'; codeMsg.textContent='Código no válido o ya usado.'; }
+});
+
+resetBtn.addEventListener('click', ()=>{
+  revealed=false; status.textContent='Bloqueado'; status.style.background='rgba(25,195,125,.15)';
+  prize.style.opacity='0'; bar.style.width='0%'; pct.textContent='0%';
+  clearConfetti(); codeGate.style.display='block'; codeInput.value='';
+  paintCover();
+});
+
+window.addEventListener('resize', sizeCanvas);
+</script>
+</body>
+</html>
